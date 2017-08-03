@@ -2,7 +2,7 @@ type Predicate<T> = (x: T) => boolean;
 type TypeGuardPredicate<T> = (x: any) => x is T;
 
 interface Type<T> extends Function {
-  (value: T): T;
+  (value: T): Readonly<T>;
   is: TypeGuardPredicate<T>;
   displayName: string;
   meta: {
@@ -10,7 +10,7 @@ interface Type<T> extends Function {
     name: string;
     identity: boolean;
   };
-  t: T;
+  t: Readonly<T>;
 }
 
 //
@@ -55,7 +55,7 @@ interface UnshiftCommand { $unshift: Array<any>; }
 interface MergeCommand { $merge: Object; }
 type Command = ApplyCommand | PushCommand | RemoveCommand | SetCommand | SpliceCommand | SwapCommand | UnshiftCommand | MergeCommand;
 type UpdatePatch = Command | { [key: string]: UpdatePatch };
-type Update<T> = (instance: T, spec: UpdatePatch) => T;
+type Update<T, ReadonlyT extends Readonly<T> = Readonly<T>> = (instance: ReadonlyT, spec: UpdatePatch) => ReadonlyT;
 
 type Constructor<T> = Type<T> | Function;
 
@@ -80,20 +80,23 @@ export function refinement<T>(type: Constructor<T>, predicate: Predicate<T>, nam
 // struct
 //
 
-type StructProps = { [key: string]: Constructor<any> };
-type StructMixin = StructProps | Struct<any> | Interface<any>;
+type StructProps<T> = {
+  [Key in keyof T]: Constructor<T[Key]>
+};
+
+type StructMixin<T> = StructProps<T> | Struct<T> | Interface<T>;
 
 interface Struct<T> extends Type<T> {
-  new(value: T): T;
+  new(value: T): Readonly<T>;
   meta: {
     kind: string;
     name: string;
     identity: boolean;
-    props: StructProps;
+    props: StructProps<T>;
     strict: boolean;
   };
   update: Update<T>;
-  extend<E extends T>(mixins: StructMixin | Array<StructMixin>, name?: string): Struct<E>;
+  extend<E extends T>(mixins: StructMixin<T> | Array<StructMixin<T>>, name?: string): Struct<E>;
 }
 
 type StructOptions = {
@@ -101,7 +104,7 @@ type StructOptions = {
   strict?: boolean
 };
 
-export function struct<T>(props: StructProps, name?: string | StructOptions): Struct<T>;
+export function struct<T>(props: StructProps<T>, name?: string | StructOptions): Struct<T>;
 
 //
 // interface
@@ -112,14 +115,14 @@ interface Interface<T> extends Type<T> {
     kind: string;
     name: string;
     identity: boolean;
-    props: StructProps;
+    props: StructProps<T>;
     strict: boolean;
   };
   update: Update<T>;
-  extend<E extends T>(mixins: StructMixin | Array<StructMixin>, name?: string): Struct<E>;
+  extend<E extends T>(mixins: StructMixin<T> | Array<StructMixin<T>>, name?: string): Struct<E>;
 }
 
-export function interface<T>(props: StructProps, name?: string | StructOptions): Interface<T>;
+export function interface<T>(props: StructProps<T>, name?: string | StructOptions): Interface<T>;
 
 //
 // list
@@ -158,19 +161,22 @@ export function dict<T>(domain: Constructor<string>, codomain: Constructor<T>, n
 // enums combinator
 //
 
-interface Enums extends Type<string> {
+type EnumMap<Values extends string> =
+  { [Key in Values]: string };
+
+interface Enums<Values extends string> extends Type<Values> {
   meta: {
     kind: string;
     name: string;
     identity: boolean;
-    map: Object;
+    map: EnumMap<Values>
   };
 }
 
 interface EnumsFunction extends Function {
-  (map: Object, name?: string): Enums;
-  of(enums: string, name?: string): Enums;
-  of(enums: Array<string>, name?: string): Enums;
+  <EnumMap extends Object>(map: EnumMap, name?: string): Enums<keyof EnumMap>;
+  of(enums: string, name?: string): Enums<any>;
+  of<Values extends string> (enums: Array<Values>, name?: string): Enums<Values>;
 }
 
 export var enums: EnumsFunction;
