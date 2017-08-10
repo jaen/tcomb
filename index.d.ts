@@ -185,14 +185,14 @@ export var enums: EnumsFunction;
 // maybe combinator
 //
 
-interface Maybe<T> extends Type<void | T> {
+interface Maybe<T> extends Type<T | null | undefined> {
   meta: {
     kind: string;
     name: string;
     identity: boolean;
     type: Constructor<T>;
   };
-  update: Update<void | T>;
+  update: Update<T | null | undefined>;
 }
 
 export function maybe<T>(type: Constructor<T>, name?: string): Maybe<T>;
